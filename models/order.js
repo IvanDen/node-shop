@@ -1,13 +1,14 @@
 const {INTEGER, STRING, DOUBLE} = require('sequelize');
 const sequelize = require("../util/database");
 
-const Order = sequelize.define('order', {
-    id: {
-        type: INTEGER,
-        autoIncrement: true,
-        allowNull: false,
-        primaryKey: true
+class Order {
+    constructor(id) {
+        this.id = id;
     }
-});
+
+    static fetchAll() {
+        console.log('Empty fetch method');
+    }
+}
 
 module.exports = Order;
