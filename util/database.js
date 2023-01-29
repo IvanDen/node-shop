@@ -21,6 +21,13 @@ const getDb = () => {
     }
     throw 'No database found!';
 }
+
+function getCollection(collectionName) {
+    const db = getDb();
+    return db.collection(collectionName)
+}
+
 exports.mongoConnect = mongoConnect;
 exports.getDb = getDb;
+exports.getCollection = getCollection;
 
