@@ -1,14 +1,25 @@
-const {INTEGER, STRING, DOUBLE} = require('sequelize');
-const sequelize = require("../util/database");
+const mongoose = require('mongoose');
 
-class Order {
-    constructor(id) {
-        this.id = id;
+const Schema = mongoose.Schema;
+
+const orderSchema = new Schema({
+    products: [
+        {
+            product: {type: Object, require: true},
+            quantity: {type: Number, require: true}
+        }
+    ],
+    user: {
+        name: {
+            type: String,
+            required: true
+        },
+        userId: {
+            type: Schema.Types.ObjectId,
+            required: true,
+            ref: 'User'
+        }
     }
+});
 
-    static fetchAll() {
-        console.log('Empty fetch method');
-    }
-}
-
-module.exports = Order;
+module.exports = mongoose.model('Order', orderSchema);
