@@ -5,6 +5,7 @@ const mongoose = require('mongoose');
 const session = require('express-session');
 const MongoBDStore = require('connect-mongodb-session')(session);
 const csurf = require('csurf');
+const flash = require('connect-flash');
 
 const errorController = require('./controllers/error');
 const User = require('./models/user');
@@ -37,6 +38,7 @@ app.use(
     })
 );
 app.use(csrfProtection);
+app.use(flash());
 
 app.use((req, res, next) => {
     if (!req.session.user) {
@@ -48,16 +50,6 @@ app.use((req, res, next) => {
             next();
         })
         .catch(err => console.log(err))
-});
-
-app.use((req, res, next) => {
-
-    User.findById('63d6a50340f06f56000dfc59')
-        .then(user => {
-            req.user = user;
-            next();
-        })
-        .catch(err => console.log(err));
 });
 
 app.use((req, res, next) => {
