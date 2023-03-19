@@ -1,6 +1,10 @@
 const bcryptjs = require('bcryptjs');
 const User = require("../models/user");
+const sgMail = require('@sendgrid/mail');
+const crypto = require('node:crypto');
+require('dotenv').config();
 
+sgMail.setApiKey(process.env.SENDGRID_API_KEY)
 exports.getLogin = (req, res, next) => {
     let message = req.flash('error');
     if (message.length > 0) {
@@ -65,7 +69,8 @@ exports.postSignup = (req, res, next) => {
                 req.flash('error', 'E-Mail exists already, please pick a different one.');
                 return res.redirect('/signup');
             }
-            return bcryptjs.hash(password, 12)
+            bcryptjs
+                .hash(password, 12)
                 .then(hashedPassword => {
                     const user = new User({
                         email: email,
@@ -74,15 +79,25 @@ exports.postSignup = (req, res, next) => {
                             items: []
                         }
                     });
-                    return user.save();
+                    return user.save()
                 })
                 .then(result => {
-                    return res.redirect('/login');
-                });
+                    // TODO it's doesnt send a message.
+                    res.redirect('/login');
+                    return sgMail.send({
+                        to: email,
+                        from: "xexete4658@etondy.com",
+                        subject: "Authorisation information",
+                        html: `<h1>You successfully signed up!</h1>`
+                    })
+                        .then((response) => {
+                            console.log("sendgrig statusCode = ", response[0].statusCode);
+                            console.log("sendgrig headers = ", response[0].headers);
+                        })
+                })
+                .catch(err => console.log("postSignup/bcryptjs Error = ", err));
         })
-
-        .catch(err => console.log(err));
-    ;
+        .catch(err => console.log("postSignup/bcryptjs Error = ", err));
 };
 
 exports.postLogout = (req, res, next) => {
@@ -91,3 +106,83 @@ exports.postLogout = (req, res, next) => {
         res.redirect('/')
     })
 };
+
+exports.getReset = (req, res, next) => {
+    let message = req.flash('error');
+    if (message.length > 0) {
+        message = message[0];
+    } else {
+        message = null;
+    }
+    res.render('auth/reset', {
+        path: '/reset',
+        pageTitle: 'Reset Password',
+        errorMessage: message
+    });
+}
+
+exports.postReset = (req, res, next) => {
+    crypto.randomBytes(32, (err, buffer) => {
+        if (err) {
+            console.log(err);
+        }
+        const token = buffer.toString('hex');
+        const email = req.body.email;
+        User
+            .findOne({email})
+            .then(user => {
+                if (!user) {
+                    req.flash('error', 'No account with that email found!');
+                    return res.redirect('/reset');
+                }
+                user.resetToken = token;
+                user.resetTokenExpiration = Date.now() + 3600000;
+                return user.save();
+
+            })
+            .then(result => {
+                res.redirect('/');
+                return sgMail
+                    .send({
+                        to: email,
+                        from: "xexete4658@etondy.com",
+                        subject: "Password reset",
+                        html: `<h1>You requested was reset!</h1>
+                               <p> Click this <a href="http://localhost:3000/reset/${token}">link</a> to a set a new password</p>`
+                    })
+                    .then((response) => {
+                        console.log("sendgrig statusCode = ", response[0].statusCode);
+                        console.log("sendgrig headers = ", response[0].headers);
+                    })
+            })
+            .catch((err) => {
+                console.log("postReset, fined user = ", err)
+            })
+
+    })
+}
+
+exports.getNewPassword = (req, res, next) => {
+    const token = req.params.token;
+    User
+        .findOne({resetToken: token, resetTokenExpiration: {$gt: Date.now()}})
+        .then(user => {
+            let message = req.flash('error');
+            if (message.length > 0) {
+                message = message[0];
+            } else {
+                message = null;
+            }
+
+            res.render('auth/new-password', {
+                path: '/new-password',
+                pageTitle: 'New Password',
+                errorMessage: message,
+                userId: user._id.toString()
+            });
+        })
+        .catch((err) => {
+            console.log("getNewPassword, fined user = ", err)
+        })
+
+}
