@@ -2,9 +2,11 @@ const bcryptjs = require('bcryptjs');
 const User = require("../models/user");
 const sgMail = require('@sendgrid/mail');
 const crypto = require('node:crypto');
+const {validationResult} = require('express-validator/check');
 require('dotenv').config();
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY)
+
 exports.getLogin = (req, res, next) => {
     let message = req.flash('error');
     if (message.length > 0) {
@@ -63,6 +65,18 @@ exports.postSignup = (req, res, next) => {
     const email = req.body.email;
     const password = req.body.password;
     const confirmPassword = req.body.confirmPassword;
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+        console.log("postSignup has errors: ", errors.array());
+        return res
+            .status(422)
+            .render('auth/signup', {
+                path: '/signup',
+                pageTitle: 'Signup',
+                errorMessage: errors.array()[0].msg
+            });
+    }
+
     User.findOne({email: email})
         .then(userDoc => {
             if (userDoc) {
