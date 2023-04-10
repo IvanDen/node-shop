@@ -2,7 +2,7 @@ const bcryptjs = require('bcryptjs')
 const User = require('../models/user')
 const sgMail = require('@sendgrid/mail')
 const crypto = require('node:crypto')
-const { validationResult } = require('express-validator/check')
+const { validationResult } = require('express-validator')
 require('dotenv').config()
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY)
@@ -17,7 +17,9 @@ exports.getLogin = (req, res, next) => {
     res.render('auth/login', {
         path: '/login',
         pageTitle: 'Login',
-        errorMessage: message
+        errorMessage: message,
+        oldInput: { email: '', password: '' },
+        validationErrors: []
     })
 }
 
@@ -31,33 +33,70 @@ exports.getSignup = (req, res, next) => {
     res.render('auth/signup', {
         path: '/signup',
         pageTitle: 'Signup',
-        errorMessage: message
+        errorMessage: message,
+        oldInput: { email: '', password: '', confirmPassword: '' },
+        validationErrors: []
     })
 }
 
 exports.postLogin = async (req, res, next) => {
     const email = req.body.email
     const password = req.body.password
+    const errors = validationResult(req)
+    if (!errors.isEmpty()) {
+        return res
+            .status(422)
+            .render('auth/login', {
+                path: '/login',
+                pageTitle: 'Login',
+                errorMessage: errors.array()[0].msg,
+                oldInput: { email, password },
+                validationErrors: errors.array()
+            })
+    }
     try {
         const user = await User.findOne({ email })
         if (!user) {
-            req.flash('error', 'Invalid email or password.')
-            return res.redirect('/login')
+            return res.status(422)
+                .render('auth/login', {
+                    path: '/login',
+                    pageTitle: 'Login',
+                    errorMessage: 'User is not found.',
+                    oldInput: { email, password },
+                    validationErrors: []
+                })
         }
-        const compareResult = bcryptjs.compare(password, user.password)
+        const compareResult = await bcryptjs.compare(password, user.password)
         if (compareResult) {
             req.session.isLoggedIn = true
             req.session.user = user
-            return req.session.save((err) => {
-                console.log(err)
-                res.redirect('/')
-            })
+            return req
+                .session
+                .save((err) => {
+                    console.log(err)
+                    res.redirect('/')
+                })
+        } else {
+            return res.status(422)
+                .render('auth/login', {
+                    path: '/login',
+                    pageTitle: 'Login',
+                    errorMessage: 'Invalid email or password.',
+                    oldInput: { email, password },
+                    validationErrors: []
+                })
         }
-        return res.redirect('/login')
     } catch (err) {
         req.flash('error', 'Invalid email or password.')
         console.log(err)
-        return res.redirect('/login')
+        return res.status(422)
+            .render('auth/login', {
+                path: '/login',
+                pageTitle: 'Login',
+                errorMessage: 'Invalid email or password.',
+                oldInput: { email, password },
+                validationErrors: []
+            })
     }
 }
 
@@ -73,42 +112,35 @@ exports.postSignup = (req, res, next) => {
             .render('auth/signup', {
                 path: '/signup',
                 pageTitle: 'Signup',
-                errorMessage: errors.array()[0].msg
+                errorMessage: errors.array()[0].msg,
+                oldInput: { email, password, confirmPassword: req.body.confirmPassword },
+                validationErrors: errors.array()
             })
     }
-
-    User.findOne({ email })
-        .then(userDoc => {
-            if (userDoc) {
-                req.flash('error', 'E-Mail exists already, please pick a different one.')
-                return res.redirect('/signup')
-            }
-            bcryptjs
-                .hash(password, 12)
-                .then(hashedPassword => {
-                    const user = new User({
-                        email,
-                        password: hashedPassword,
-                        cart: {
-                            items: []
-                        }
-                    })
-                    return user.save()
+    bcryptjs
+        .hash(password, 12)
+        .then(hashedPassword => {
+            const user = new User({
+                email,
+                password: hashedPassword,
+                cart: {
+                    items: []
+                }
+            })
+            return user.save()
+        })
+        .then(result => {
+            res.redirect('/login')
+            return sgMail.send({
+                to: email,
+                from: 'xexete4658@etondy.com',
+                subject: 'Authorisation information',
+                html: '<h1>You successfully signed up!</h1>'
+            })
+                .then((response) => {
+                    console.log('sendgrig statusCode = ', response[0].statusCode)
+                    console.log('sendgrig headers = ', response[0].headers)
                 })
-                .then(result => {
-                    res.redirect('/login')
-                    return sgMail.send({
-                        to: email,
-                        from: 'xexete4658@etondy.com',
-                        subject: 'Authorisation information',
-                        html: '<h1>You successfully signed up!</h1>'
-                    })
-                        .then((response) => {
-                            console.log('sendgrig statusCode = ', response[0].statusCode)
-                            console.log('sendgrig headers = ', response[0].headers)
-                        })
-                })
-                .catch(err => console.log('postSignup/bcryptjs Error = ', err))
         })
         .catch(err => console.log('postSignup/bcryptjs Error = ', err))
 }
