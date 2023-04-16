@@ -1,5 +1,6 @@
 const Product = require('../models/product')
 const { validationResult } = require('express-validator')
+const { errorHandler } = require('../util/errorHandler')
 
 exports.getAddProduct = (req, res, next) => {
     if (!req.session.isLoggedIn) {
@@ -23,7 +24,7 @@ exports.postAddProduct = (req, res, next) => {
             .status(422)
             .render('admin/edit-product', {
                 pageTitle: 'Add Product',
-                path: '/admin/edit-product',
+                path: '/admin/add-product',
                 editing: false,
                 hasError: true,
                 product: {
@@ -47,7 +48,23 @@ exports.postAddProduct = (req, res, next) => {
             console.log('The new product was created')
             res.redirect('/admin/products')
         })
-        .catch(err => console.log(err))
+        .catch(err => {
+            // return res
+            //     .status(500)
+            //     .render('admin/edit-product', {
+            //         pageTitle: 'Add Product',
+            //         path: '/admin/add-product',
+            //         editing: false,
+            //         hasError: true,
+            //         product: {
+            //             title, imageUrl, price, description
+            //         },
+            //         errorMessage: 'Database operation failed, please try again.',
+            //         validationErrors: []
+            //     })
+            // res.redirect('/500')
+            return errorHandler(err, next)
+        })
 }
 
 exports.getEditProduct = (req, res, next) => {
@@ -72,7 +89,7 @@ exports.getEditProduct = (req, res, next) => {
                 validationErrors: []
             })
         })
-        .catch(err => console.log(err))
+        .catch(err => errorHandler(err, next))
 }
 
 exports.postEditProduct = (req, res, next) => {
@@ -120,7 +137,7 @@ exports.postEditProduct = (req, res, next) => {
                     res.redirect('/admin/products')
                 })
         })
-        .catch(err => console.log(err))
+        .catch(err => errorHandler(err, next))
 }
 
 exports.getProducts = (req, res, next) => {
@@ -135,7 +152,7 @@ exports.getProducts = (req, res, next) => {
                 path: '/admin/products'
             })
         })
-        .catch(err => console.log(err))
+        .catch(err => errorHandler(err, next))
 }
 
 exports.postDeleteProduct = (req, res, next) => {
@@ -145,5 +162,5 @@ exports.postDeleteProduct = (req, res, next) => {
             console.log('UPDATED PRODUCT ID = ', prodId)
             res.redirect('/admin/products')
         })
-        .catch(err => console.log(err))
+        .catch(err => errorHandler(err, next))
 }

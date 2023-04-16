@@ -3,6 +3,7 @@ const User = require('../models/user')
 const sgMail = require('@sendgrid/mail')
 const crypto = require('node:crypto')
 const { validationResult } = require('express-validator')
+const { errorHandler } = require('../util/errorHandler')
 require('dotenv').config()
 
 sgMail.setApiKey(process.env.SENDGRID_API_KEY)
@@ -88,7 +89,7 @@ exports.postLogin = async (req, res, next) => {
         }
     } catch (err) {
         req.flash('error', 'Invalid email or password.')
-        console.log(err)
+
         return res.status(422)
             .render('auth/login', {
                 path: '/login',
@@ -142,7 +143,7 @@ exports.postSignup = (req, res, next) => {
                     console.log('sendgrig headers = ', response[0].headers)
                 })
         })
-        .catch(err => console.log('postSignup/bcryptjs Error = ', err))
+        .catch(err => errorHandler(err, next))
 }
 
 exports.postLogout = (req, res, next) => {
@@ -199,9 +200,7 @@ exports.postReset = (req, res, next) => {
                         console.log('sendgrig headers = ', response[0].headers)
                     })
             })
-            .catch((err) => {
-                console.log('postReset, fined user = ', err)
-            })
+            .catch((err) => errorHandler(err, next))
     })
 }
 
@@ -225,9 +224,7 @@ exports.getNewPassword = (req, res, next) => {
                 passwordToken: token
             })
         })
-        .catch((err) => {
-            console.log('getNewPassword, fined user = ', err)
-        })
+        .catch((err) => errorHandler(err, next))
 }
 
 exports.postNewPassword = (req, res, next) => {
@@ -255,7 +252,5 @@ exports.postNewPassword = (req, res, next) => {
         .then(user => {
             res.redirect('/login')
         })
-        .catch(err => {
-            console.log(err)
-        })
+        .catch(err => errorHandler(err, next))
 }
